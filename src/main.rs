@@ -1,6 +1,8 @@
 
 
 use teloxide::prelude::*;
+use teloxide::dispatching::DpHandlerDescription;
+use teloxide::RequestError;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage};
 use dotenvy::{dotenv, var};
 
@@ -20,12 +22,12 @@ async fn main() {
     ]);
 
     // Handler for callback queries
-    let callback_handler = Update::filter_callback_query().endpoint(
+    let callback_handler: Handler<'_, DependencyMap, Result<(), RequestError>, DpHandlerDescription> = Update::filter_callback_query().endpoint(
         |bot: Bot, q: CallbackQuery| async move {
             let response = match q.data.as_deref() {
                 Some("like") => "Thanks for liking!",
                 Some("dislike") => "Sorry you didn't like it!",
-                _ => "Unknown action",
+                _ => "Unknown",
             };
 
             if let Some(message) = q.message {
@@ -39,12 +41,11 @@ async fn main() {
                 }
             }
             bot.answer_callback_query(q.id).await?;
-            Ok::<(), teloxide::RequestError>(()) 
+            Ok::<(), RequestError>(()) 
         },
     );
 
     // Send a message with the keyboard
-    // Get user_id from environment variable at runtime
 let user_id = var("TEST_USER_ID").map_err(|_| "TEST_USER_ID environment variable not set").unwrap();
 let user_id: i64 = user_id.parse().unwrap();
     bot.send_message(ChatId(user_id), "Do you like this bot?")

@@ -1,35 +1,61 @@
-use teloxide::{prelude::*,  utils::command::BotCommands};
-use dotenvy::dotenv;
+
+
+use teloxide::prelude::*;
+use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage};
+use dotenvy::{dotenv, var};
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-
     pretty_env_logger::init();
-    log::info!("Starting throw dice bot...");
 
     let bot = Bot::from_env();
 
-    Command::repl(bot, answer).await;
+    // Define the keyboard
+    let keyboard = InlineKeyboardMarkup::new(vec![
+        vec![
+            InlineKeyboardButton::callback("Like", "like"),
+            InlineKeyboardButton::callback("Dislike", "dislike"),
+        ],
+    ]);
 
-}
+    // Handler for callback queries
+    let callback_handler = Update::filter_callback_query().endpoint(
+        |bot: Bot, q: CallbackQuery| async move {
+            let response = match q.data.as_deref() {
+                Some("like") => "Thanks for liking!",
+                Some("dislike") => "Sorry you didn't like it!",
+                _ => "Unknown action",
+            };
 
-#[derive(BotCommands, Clone)]
-#[command(rename_rule = "lowercase", description = "These commands are supported:")]
-enum Command {
-    #[command(description = "display this text.")]
-    Help,
-    #[command(description = "handle a username.")]
-    Settings,
-}
+            if let Some(message) = q.message {
+                match message {
+                    MaybeInaccessibleMessage::Regular(msg) => {
+                        bot.send_message(msg.chat.id, response).await?;
+                    }
+                    MaybeInaccessibleMessage::Inaccessible(_msg) => {
+                        log::warn!("Message is inaccessible, cannot send response");
+                    }
+                }
+            }
+            bot.answer_callback_query(q.id).await?;
+            Ok::<(), teloxide::RequestError>(()) 
+        },
+    );
 
-async fn answer(bot: Bot, msg: Message, cmd: Command) -> ResponseResult<()> {
-    match cmd {
-        Command::Help => bot.send_message(msg.chat.id, Command::descriptions().to_string()).await?,
-        Command::Settings => {
-            bot.send_message(msg.chat.id, format!("Choose a video quality to use")).await?
-        }
-    };
+    // Send a message with the keyboard
+    // Get user_id from environment variable at runtime
+let user_id = var("TEST_USER_ID").map_err(|_| "TEST_USER_ID environment variable not set").unwrap();
+let user_id: i64 = user_id.parse().unwrap();
+    bot.send_message(ChatId(user_id), "Do you like this bot?")
+        .reply_markup(keyboard)
+        .await
+        .expect("Failed to send message");
 
-    Ok(())
+    // Start the dispatcher
+    Dispatcher::builder(bot, callback_handler)
+        .enable_ctrlc_handler()
+        .build()
+        .dispatch()
+        .await;
 }

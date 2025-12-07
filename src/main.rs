@@ -1,62 +1,106 @@
 
+pub mod inlinekeyboard;
+pub mod inlinequery;
+pub mod youtubeurl;
+// pub mod ytdl;
 
-use teloxide::prelude::*;
-use teloxide::dispatching::DpHandlerDescription;
-use teloxide::RequestError;
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage};
 use dotenvy::{dotenv, var};
+use teloxide::{
+    prelude::*,
+    types::{
+        InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResult, InlineQueryResultArticle, InputMessageContent, InputMessageContentText
+    },
+};
+
+use log::info;
+
+use crate::youtubeurl::yt_url;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
     pretty_env_logger::init();
 
-    let bot = Bot::from_env();
+    info!("Starting inline bot...");
 
-    // Define the keyboard
+    let bot = Bot::from_env(); // Reads TELOXIDE_TOKEN
+
+    Dispatcher::builder(
+        bot,
+        Update::filter_inline_query().endpoint(handle_inline_query),
+    )
+    .enable_ctrlc_handler()
+    .build()
+    .dispatch()
+    .await;
+}
+
+async fn handle_inline_query(
+    bot: Bot,
+    query: InlineQuery,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    info!("Received inline query: {}", query.query);
+
+    // Handle empty queries
+
+    if query.query.is_empty() {
+        info!("Empty query received, returning no results");
+
+        bot.answer_inline_query(query.id, vec![]).await?;
+
+        return Ok(());
+    }
+
     let keyboard = InlineKeyboardMarkup::new(vec![
         vec![
-            InlineKeyboardButton::callback("Like", "like"),
-            InlineKeyboardButton::callback("Dislike", "dislike"),
+            InlineKeyboardButton::callback("4K", "4K"),
+            InlineKeyboardButton::callback("1080P", "1080P"),
+            InlineKeyboardButton::callback("720P", "720P"),
         ],
+        vec![
+            InlineKeyboardButton::callback("480P", "480P"),
+            InlineKeyboardButton::callback("360P", "360P"),
+            InlineKeyboardButton::callback("256K", "256K"),
+            InlineKeyboardButton::callback("128K", "128K"),
+        ]
     ]);
 
-    // Handler for callback queries
-    let callback_handler: Handler<'_, DependencyMap, Result<(), RequestError>, DpHandlerDescription> = Update::filter_callback_query().endpoint(
-        |bot: Bot, q: CallbackQuery| async move {
-            let response = match q.data.as_deref() {
-                Some("like") => "Thanks for liking!",
-                Some("dislike") => "Sorry you didn't like it!",
-                _ => "Unknown",
-            };
+    let mut results: Vec<InlineQueryResult> = vec![];
 
-            if let Some(message) = q.message {
-                match message {
-                    MaybeInaccessibleMessage::Regular(msg) => {
-                        bot.send_message(msg.chat.id, response).await?;
-                    }
-                    MaybeInaccessibleMessage::Inaccessible(_msg) => {
-                        log::warn!("Message is inaccessible, cannot send response");
-                    }
-                }
-            }
-            bot.answer_callback_query(q.id).await?;
-            Ok::<(), RequestError>(()) 
-        },
+    let query_results = yt_url(query.query.clone().as_str(), var("YOUTUBE_API_KEY")?, 5).await?;
+
+    for result in query_results {
+        results.push(
+            InlineQueryResult::Article(InlineQueryResultArticle {
+                
+                id: result.id,
+                title: result.title,
+                input_message_content: InputMessageContent::Text(InputMessageContentText {
+                    message_text: result.video_url.to_string(),
+                    parse_mode: None,
+                    link_preview_options: None,
+                    entities: None,
+                }),
+                description: Some(result.description),
+                url: Some(result.video_url),
+                hide_url: Some(true),
+                reply_markup: Some(keyboard.clone()),
+                thumbnail_url: Some(result.thumbnail_url),
+                thumbnail_width: Some(120),
+                thumbnail_height: Some(90),
+            })
+        )
+    }
+
+    info!(
+        "Sending {} results for query: {}",
+        results.len(),
+        query.query
     );
 
-    // Send a message with the keyboard
-let user_id = var("TEST_USER_ID").map_err(|_| "TEST_USER_ID environment variable not set").unwrap();
-let user_id: i64 = user_id.parse().unwrap();
-    bot.send_message(ChatId(user_id), "Do you like this bot?")
-        .reply_markup(keyboard)
-        .await
-        .expect("Failed to send message");
+    bot.answer_inline_query(query.id, results)
+        .cache_time(300)
+        .await?;
 
-    // Start the dispatcher
-    Dispatcher::builder(bot, callback_handler)
-        .enable_ctrlc_handler()
-        .build()
-        .dispatch()
-        .await;
+    Ok(())
 }

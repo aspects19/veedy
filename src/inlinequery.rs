@@ -3,10 +3,10 @@ use log::info;
 use teloxide::{
     prelude::*,
     types::{
-        InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, InlineQueryResult, InlineQueryResultArticle, InputMessageContent, InputMessageContentText
+        InlineQuery, InlineQueryResult, InlineQueryResultArticle, InputMessageContent, InputMessageContentText
     },
 };
-use crate::youtubeurl::yt_url;
+use crate::{inlinekeyboard::keyboardbtns, youtubeurl::yt_url};
 
 
 pub async fn handle_inline_query(
@@ -25,19 +25,7 @@ pub async fn handle_inline_query(
         return Ok(());
     }
 
-    let keyboard = InlineKeyboardMarkup::new(vec![
-        vec![
-            InlineKeyboardButton::callback("4K", "4K"),
-            InlineKeyboardButton::callback("1080P", "1080P"),
-            InlineKeyboardButton::callback("720P", "720P"),
-        ],
-        vec![
-            InlineKeyboardButton::callback("480P", "480P"),
-            InlineKeyboardButton::callback("360P", "360P"),
-            InlineKeyboardButton::callback("256K", "256K"),
-            InlineKeyboardButton::callback("128K", "128K"),
-        ]
-    ]);
+    let keyboard = keyboardbtns().await;
 
     let mut results: Vec<InlineQueryResult> = vec![];
 

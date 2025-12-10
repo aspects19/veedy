@@ -15,11 +15,17 @@ async fn main() {
     pretty_env_logger::init();
 
 
-    let bot = Bot::from_env(); // Reads TELOXIDE_TOKEN
+    let bot = Bot::from_env(); 
+
+    let handler = Update::filter_message()
+        .branch(
+            Update::filter_inline_query()
+            .endpoint(handle_inline_query)
+        );
 
     Dispatcher::builder(
         bot,
-        Update::filter_inline_query().endpoint(handle_inline_query),
+        handler,
     )
     .enable_ctrlc_handler()
     .build()

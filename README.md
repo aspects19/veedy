@@ -1,5 +1,7 @@
 # Veedy
 
+https://t.me/viidybot
+
 **Veedy** is a brazing fast Telegram bot for Downloading videos from YouTube and other sites by typing a video title in inline mode.
 
 ## 🚀 Features

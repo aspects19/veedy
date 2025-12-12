@@ -1,50 +1,55 @@
-use std::{path::Path, process::Command};
-
+use std::path::{Path, PathBuf};
+use log::info;
 use tokio::fs;
+use tokio::process::Command;
 
-pub async fn prepare_ffmpeg() -> Result<(), Box<dyn std::error::Error>> {
-    if Command::new("ffmpeg").arg("-version").output().is_ok() {
-        println!("System FFmpeg Found. Skipping download.");
-        return Ok(());
+pub async fn prepare_ffmpeg() -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
+    
+    if Command::new("ffmpeg").arg("-version").output().await.is_ok() {
+        info!("System FFmpeg found.");
+        return Ok(PathBuf::from("ffmpeg"));
     }
 
-    if Path::new("lib/ffmpeg").exists() {
-        println!("Local FFmpeg found.");
-        return Ok(());
+    let local_path = Path::new("lib").join("ffmpeg");
+
+    if local_path.exists() {
+        info!("Using local FFmpeg at {:?}", local_path);
+        return Ok(tokio::fs::canonicalize(&local_path).await?);
     }
 
-    println!("FFmpeg missing downloading...");
+    info!("FFmpeg missing. Downloading standalone binary...");
     download_ffmpeg().await?;
-    Ok(())
+    
+    return Ok(tokio::fs::canonicalize(&local_path).await?);
 }
 
-async fn download_ffmpeg() -> Result<(), Box<dyn std::error::Error>>{
+async fn download_ffmpeg() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     fs::create_dir_all("lib").await?;
+    let archive_path = Path::new("lib").join("ffmpeg.tar.xz");
 
-    // TODO: Dynamify this for different environments/OS
+    // Linux 64-bit Static Build (GPL)
     let url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz";
-    let archive_path = "lib/ffmpeg.tar.xz";
 
+    info!("Downloading FFmpeg archive...");
     let resp = reqwest::get(url).await?;
-    fs::write(archive_path, resp.bytes().await?).await?;
+    fs::write(&archive_path, resp.bytes().await?).await?;
 
+    info!("Extracting FFmpeg...");
     let status = Command::new("tar")
         .args(&[
-            "-xf", archive_path,
+            "-xf", archive_path.to_str().unwrap(),
             "-C", "lib",
             "--strip-components=2", 
-            "--wildcards", "*/bin/ffmpeg"
+            "--wildcards", "*/bin/ffmpeg" 
         ])
         .status()
-        .expect("Failed to run tar");
+        .await?;
 
-    if status.success() {
-        std::fs::remove_file(archive_path).ok();
-        println!("Done! FFmpeg is ready at ./lib/ffmpeg");
-    } else {
-        eprintln!("Extraction failed.");
+    if !status.success() {
+        return Err("Tar extraction failed.".into());
     }
 
-    Ok(())
+    let _ = fs::remove_file(archive_path).await;
 
+    Ok(())
 }

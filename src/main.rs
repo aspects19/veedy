@@ -1,4 +1,3 @@
-
 pub mod inlinekeyboard;
 pub mod inlinequery;
 pub mod youtubeurl;
@@ -7,7 +6,7 @@ pub mod ffmpeg;
 
 use dotenvy::dotenv;
 use teloxide::prelude::*;
-use crate::inlinequery::handle_inline_query;
+use crate::inlinequery::{handle_chosen_inline_result, handle_inline_query};
 
 #[tokio::main]
 async fn main() {
@@ -17,18 +16,20 @@ async fn main() {
 
     let bot = Bot::from_env(); 
 
-    let handler = Update::filter_message()
+    let handler = dptree::entry()
         .branch(
             Update::filter_inline_query()
             .endpoint(handle_inline_query)
+        )
+        
+        .branch(
+            Update::filter_chosen_inline_result()
+            .endpoint( handle_chosen_inline_result )
         );
 
-    Dispatcher::builder(
-        bot,
-        handler,
-    )
-    .enable_ctrlc_handler()
-    .build()
-    .dispatch()
-    .await;
+    Dispatcher::builder( bot, handler )
+        .enable_ctrlc_handler()
+        .build()
+        .dispatch()
+        .await;
 }

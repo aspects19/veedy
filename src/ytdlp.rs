@@ -53,3 +53,44 @@ async fn download_ytdlp() -> Result<(), Box<dyn std::error::Error + Send + Sync>
     Ok(())
 }
 
+pub async fn download_video(link: Url) ->Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
+
+    let ytdlp_path = prepare_ytdlp().await?;
+    let ffmpeg_path = prepare_ffmpeg().await?;
+
+    let download_dir = Path::new("downloads");
+    
+    if !download_dir.exists() {
+        fs::create_dir_all(download_dir).await?;
+    }
+
+    let abs_download_dir = std::fs::canonicalize(download_dir)?;
+
+    info!("Starting download for: {}", link);
+
+    let mut  cmd = Command::new(&ytdlp_path);
+
+    cmd.arg(link.as_str())
+        .arg("-P").arg(abs_download_dir)
+        .arg("-o") .arg("%(title)s.%(ext)s") 
+        .arg("--print") .arg("filename")
+        .arg("--no-simulate");
+
+    if let Some(ffmpeg_str) = ffmpeg_path.to_str() {
+        cmd.arg("--ffmpeg-location").arg(ffmpeg_str);
+    }
+
+    let output = cmd.output().await?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("yt-dlp failed: {}", stderr).into());
+    }
+
+    let path_string = String::from_utf8(output.stdout)?;
+    let final_path = PathBuf::from(path_string.trim());
+
+    info!("Download completed: {:?}", final_path);
+
+    Ok(final_path)
+}

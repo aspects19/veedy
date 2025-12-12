@@ -1,5 +1,6 @@
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 
+#[allow(unused)]
 pub async fn keyboardbtns() -> InlineKeyboardMarkup {
        let keyboard = InlineKeyboardMarkup::new(vec![
         vec![

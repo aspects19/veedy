@@ -57,7 +57,7 @@ cargo build --release
 - [ ] Remember user's prefered video quality
 - [ ] Multi-platform support - support downloading links
 
-Have a suggestion? feel free to open an issue or submit a PR
+### Have a suggestion? feel free to open an issue or submit a PR
 
 ## ⚖️ Disclaimer
 

@@ -1,16 +1,20 @@
-use tokio::process::Command;
-use std::path::{Path, PathBuf};
 use log::info;
+use std::path::{Path, PathBuf};
 use tokio::fs;
+use tokio::process::Command;
 use url::Url;
 
 use crate::ffmpeg::prepare_ffmpeg;
 
-
 pub async fn prepare_ytdlp() -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
-    if Command::new("yt-dlp").arg("--version").output().await.is_ok() {
+    if Command::new("yt-dlp")
+        .arg("--version")
+        .output()
+        .await
+        .is_ok()
+    {
         info!("Using system yt-dlp.");
-        return Ok(PathBuf::from("yt-dlp"))
+        return Ok(PathBuf::from("yt-dlp"));
     }
 
     let local_path = Path::new("lib").join("yt-dlp");
@@ -32,7 +36,7 @@ pub async fn prepare_ytdlp() -> Result<PathBuf, Box<dyn std::error::Error + Send
 }
 
 async fn download_ytdlp() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    fs::create_dir_all("lib").await?; 
+    fs::create_dir_all("lib").await?;
 
     // Linux 64-bit (Static Build)
     let url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux";
@@ -41,7 +45,7 @@ async fn download_ytdlp() -> Result<(), Box<dyn std::error::Error + Send + Sync>
     let resp = reqwest::get(url).await?;
     fs::write(&dest_path, resp.bytes().await?).await?;
 
-  // Make executable (Linux/Mac specific)
+    // Make executable (Linux/Mac specific)
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -53,13 +57,14 @@ async fn download_ytdlp() -> Result<(), Box<dyn std::error::Error + Send + Sync>
     Ok(())
 }
 
-pub async fn download_video(link: Url) ->Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
-
+pub async fn download_video(
+    link: Url,
+) -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
     let ytdlp_path = prepare_ytdlp().await?;
     let ffmpeg_path = prepare_ffmpeg().await?;
 
     let download_dir = Path::new("downloads");
-    
+
     if !download_dir.exists() {
         fs::create_dir_all(download_dir).await?;
     }
@@ -68,12 +73,15 @@ pub async fn download_video(link: Url) ->Result<PathBuf, Box<dyn std::error::Err
 
     info!("Starting download for: {}", link);
 
-    let mut  cmd = Command::new(&ytdlp_path);
+    let mut cmd = Command::new(&ytdlp_path);
 
     cmd.arg(link.as_str())
-        .arg("-P").arg(abs_download_dir)
-        .arg("-o") .arg("%(title)s.%(ext)s") 
-        .arg("--print") .arg("filename")
+        .arg("-P")
+        .arg(abs_download_dir)
+        .arg("-o")
+        .arg("%(title)s.%(ext)s")
+        .arg("--print")
+        .arg("filename")
         .arg("--no-simulate");
 
     if let Some(ffmpeg_str) = ffmpeg_path.to_str() {

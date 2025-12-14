@@ -9,7 +9,7 @@
   
 ## How to use it
 
-1. Types `@viidyBot cat videos`.
+1. Types `@viidyBot learn rust`.
 2. Choose the video you want and it will be downloaded onto your chat.
 
 Works in groups, Saved messages and DMs.

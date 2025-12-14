@@ -9,13 +9,13 @@ pub struct Video {
     pub title: String,
     pub description: String,
     pub thumbnail_url: Url,
-    pub video_url: Url
+    pub video_url: Url,
 }
 
 #[derive(Deserialize, Debug)]
 struct SearchListResponse {
     #[serde(default)]
-    items: Vec<SearchResult>
+    items: Vec<SearchResult>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -27,7 +27,7 @@ struct SearchResult {
 #[derive(Deserialize, Debug)]
 struct Id {
     #[serde(rename = "videoId")]
-    video_id: Option<String>
+    video_id: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -82,8 +82,9 @@ pub async fn yt_url(
     api_key: String,
     max_results: i32,
 ) -> Result<Vec<Video>, Box<dyn Error + Send + Sync>> {
-
-    if query.is_empty() { return Ok(Vec::<Video>::new()) };
+    if query.is_empty() {
+        return Ok(Vec::<Video>::new());
+    };
 
     let url = format!(
         "https://www.googleapis.com/youtube/v3/search?part=snippet&q={}&type=video&key={}&maxResult={}",
@@ -102,27 +103,29 @@ pub async fn yt_url(
         .into());
     }
 
-    
-
     let resp: SearchListResponse = serde_json::from_value(body)?;
 
     let mut videos = Vec::new();
 
     for item in resp.items {
         let Some(video_id) = item.id.video_id else {
-            continue; 
+            continue;
         };
 
         let shortened_title = shorten_title(&item.snippet.title);
 
         let description = item.snippet.description;
 
-        let Some(thumb) = item.snippet.thumbnails.high
+        let Some(thumb) = item
+            .snippet
+            .thumbnails
+            .high
             .or(item.snippet.thumbnails.medium)
-            .or(item.snippet.thumbnails.default) else {
-            continue; 
+            .or(item.snippet.thumbnails.default)
+        else {
+            continue;
         };
-        
+
         let video_url = Url::parse(&format!("https://www.youtube.com/watch?v={}", video_id))?;
 
         let thumbnail_url = Url::parse(&thumb.url)?;
@@ -132,7 +135,7 @@ pub async fn yt_url(
             title: shortened_title,
             description,
             thumbnail_url,
-            video_url
+            video_url,
         });
     }
 

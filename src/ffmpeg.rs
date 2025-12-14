@@ -40,7 +40,7 @@ async fn download_ffmpeg() -> Result<(), Box<dyn std::error::Error + Send + Sync
 
     info!("Extracting FFmpeg...");
     let status = Command::new("tar")
-        .args(&[
+        .args([
             "-xf",
             archive_path.to_str().unwrap(),
             "-C",

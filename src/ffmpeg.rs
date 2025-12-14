@@ -1,11 +1,15 @@
-use std::path::{Path, PathBuf};
 use log::info;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::process::Command;
 
 pub async fn prepare_ffmpeg() -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
-    
-    if Command::new("ffmpeg").arg("-version").output().await.is_ok() {
+    if Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .await
+        .is_ok()
+    {
         info!("System FFmpeg found.");
         return Ok(PathBuf::from("ffmpeg"));
     }
@@ -19,7 +23,7 @@ pub async fn prepare_ffmpeg() -> Result<PathBuf, Box<dyn std::error::Error + Sen
 
     info!("FFmpeg missing. Downloading standalone binary...");
     download_ffmpeg().await?;
-    
+
     return Ok(tokio::fs::canonicalize(&local_path).await?);
 }
 
@@ -37,10 +41,13 @@ async fn download_ffmpeg() -> Result<(), Box<dyn std::error::Error + Send + Sync
     info!("Extracting FFmpeg...");
     let status = Command::new("tar")
         .args(&[
-            "-xf", archive_path.to_str().unwrap(),
-            "-C", "lib",
-            "--strip-components=2", 
-            "--wildcards", "*/bin/ffmpeg" 
+            "-xf",
+            archive_path.to_str().unwrap(),
+            "-C",
+            "lib",
+            "--strip-components=2",
+            "--wildcards",
+            "*/bin/ffmpeg",
         ])
         .status()
         .await?;

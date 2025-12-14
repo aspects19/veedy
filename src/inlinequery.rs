@@ -3,7 +3,9 @@ use log::{error, info};
 use teloxide::{
     prelude::*,
     types::{
-        InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, InlineQueryResult, InlineQueryResultArticle, InputFile, InputMedia, InputMediaVideo, InputMessageContent, InputMessageContentText, Recipient
+        InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, InlineQueryResult,
+        InlineQueryResultArticle, InputFile, InputMedia, InputMediaVideo, InputMessageContent,
+        InputMessageContentText, Recipient,
     },
 };
 use url::Url;
@@ -72,7 +74,6 @@ pub async fn handle_chosen_inline_result(
         None => return Ok(()),
     };
 
-
     bot.edit_message_text_inline(&inline_id, "⏳ Downloading… Please wait")
         .await?;
 
@@ -80,34 +81,45 @@ pub async fn handle_chosen_inline_result(
         Ok(path) => path,
         Err(e) => {
             error!("Download failed: {}", e);
-            bot.edit_message_text_inline(&inline_id, format!("❌ Error: Failed to download video.\nReason: {}", e)).await?;
+            bot.edit_message_text_inline(
+                &inline_id,
+                format!("❌ Error: Failed to download video.\nReason: {}", e),
+            )
+            .await?;
             return Ok(());
         }
     };
 
-    let channel_id_str = var("STORE_CHANNEL_ID")?; 
+    let channel_id_str = var("STORE_CHANNEL_ID")?;
     let channel_id = channel_id_str.parse::<i64>()?;
-    
-    let channel_msg = bot.send_video(Recipient::Id(ChatId(channel_id)), InputFile::file(&file_path))
+
+    let channel_msg = bot
+        .send_video(
+            Recipient::Id(ChatId(channel_id)),
+            InputFile::file(&file_path),
+        )
         .await?;
 
     let video_file_id = match channel_msg.video() {
         Some(v) => v.file.id.clone(),
         None => {
-            bot.edit_message_text_inline(&inline_id, "❌ Error: Could not retrieve video ID from channel.").await?;
+            bot.edit_message_text_inline(
+                &inline_id,
+                "❌ Error: Could not retrieve video ID from channel.",
+            )
+            .await?;
             return Ok(());
         }
     };
 
     bot.edit_message_media_inline(
-        &inline_id, 
+        &inline_id,
         InputMedia::Video(
-            InputMediaVideo::new(InputFile::file_id(video_file_id))
-                .supports_streaming(true)
-        )
-    ).await?;
+            InputMediaVideo::new(InputFile::file_id(video_file_id)).supports_streaming(true),
+        ),
+    )
+    .await?;
 
-    
     if let Err(e) = tokio::fs::remove_file(&file_path).await {
         error!("Failed to delete temp file {:?}: {}", file_path, e);
     } else {
